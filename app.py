@@ -10,16 +10,26 @@ import io
 import json
 import os
 import re
+import threading
 
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
-from claude_agent_sdk import query, ClaudeAgentOptions
+from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions
 from claude_agent_sdk.types import AssistantMessage, TextBlock
 
 app = Flask(__name__, static_folder="static")
 CORS(app)
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10 MB upload cap
+
+
+@app.errorhandler(Exception)
+def _json_error(e):
+    """Return JSON for any unhandled exception so the frontend can show it."""
+    import traceback
+    traceback.print_exc()  # still log full trace to terminal
+    code = getattr(e, "code", 500) if isinstance(getattr(e, "code", None), int) else 500
+    return jsonify({"error": f"{type(e).__name__}: {e}"}), code
 
 SYSTEM_PROMPT = (
     "You are a senior career coach and ATS specialist. "
@@ -27,17 +37,67 @@ SYSTEM_PROMPT = (
     "no prose, no markdown fences, no commentary."
 )
 
-# ── Claude helper ────────────────────────────────────────────────────────────
+# ── Persistent Claude SDK client ─────────────────────────────────────────────
+# One long-lived ClaudeSDKClient lives on a background event loop, shared
+# across all Flask requests. This avoids spawning a fresh `claude` subprocess
+# (and re-paying ~11k tokens of cache creation) on every call.
+#
+# Trade-off: ClaudeSDKClient preserves conversation history across queries.
+# Each JobMate prompt is self-contained (it includes the full resume + JD), so
+# context bleed is minimal — but input tokens do grow over the app's lifetime.
+# Restart Flask if you want a clean slate.
 
-async def _ask(prompt: str) -> str:
-    """Run one prompt through the local Claude Agent SDK and concat assistant text."""
+_loop = None
+_client = None
+_init_lock = threading.Lock()      # guard one-time loop/client setup
+_request_lock = threading.Lock()   # serialize concurrent Flask requests against the client
+
+
+async def _setup_client():
+    global _client
     options = ClaudeAgentOptions(
-        allowed_tools=[],        # text only — no Read/Write/Bash, no tool loops
-        max_turns=1,
+        allowed_tools=[],
         system_prompt=SYSTEM_PROMPT,
     )
+    _client = ClaudeSDKClient(options=options)
+    await _client.connect()
+
+
+def _ensure_client():
+    """Lazily start the background event loop and connect the SDK client."""
+    global _loop
+    if _client is not None:
+        return
+    with _init_lock:
+        if _client is not None:
+            return
+        ready = threading.Event()
+        err_box = {}
+
+        def _runner():
+            global _loop
+            _loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(_loop)
+            try:
+                _loop.run_until_complete(_setup_client())
+            except Exception as e:
+                err_box["error"] = e
+            finally:
+                ready.set()
+            _loop.run_forever()
+
+        threading.Thread(target=_runner, daemon=True, name="claude-sdk-loop").start()
+        if not ready.wait(timeout=60):
+            raise RuntimeError("Claude SDK client failed to initialize within 60s")
+        if "error" in err_box:
+            raise err_box["error"]
+
+
+async def _ask(prompt: str) -> str:
+    """Send one prompt on the persistent client and return concatenated text."""
+    await _client.query(prompt)
     out = []
-    async for message in query(prompt=prompt, options=options):
+    async for message in _client.receive_response():
         if isinstance(message, AssistantMessage):
             for block in message.content:
                 if isinstance(block, TextBlock):
@@ -46,12 +106,17 @@ async def _ask(prompt: str) -> str:
 
 
 def claude(prompt: str, max_tokens: int = 2500) -> dict:
-    """Call Claude (local) and parse the JSON block from the response.
+    """Call Claude via the persistent client and parse the JSON response.
 
-    `max_tokens` is kept for signature compatibility with the prior API-based
-    version but is unused — the SDK manages its own output limits.
+    `max_tokens` kept for signature compatibility with the prior API build; the
+    SDK manages its own output limits.
     """
-    text = asyncio.run(_ask(prompt))
+    _ensure_client()
+    # The client is single-threaded — one in-flight query at a time.
+    with _request_lock:
+        future = asyncio.run_coroutine_threadsafe(_ask(prompt), _loop)
+        text = future.result(timeout=300)
+
     match = re.search(r"```json\s*(.*?)```", text, re.DOTALL) or re.search(r"(\{.*\})", text, re.DOTALL)
     if match:
         return json.loads(match.group(1))
