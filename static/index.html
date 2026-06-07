@@ -973,34 +973,46 @@ function ApplicationsTab({resume, tailored, queue, setQueue, userName}) {
     if (!baseResume) { setToast({message:"Upload your resume in the Resume tab first.",type:"warning"}); return; }
     if (!tosAcknowledged()) { setTosPending(job); setTosWarning(true); return; }
     setActiveJob(job); resetModal();
+    // Auto-kick the pipeline immediately — no URL paste required
+    fetchAndTailor(job);
   };
 
   const acceptTos = () => {
     sessionStorage.setItem("jm_tos","yes");
     setTosWarning(false);
-    if (tosPending) { setActiveJob(tosPending); resetModal(); }
+    const job = tosPending;
     setTosPending(null);
+    if (job) { setActiveJob(job); resetModal(); fetchAndTailor(job); }
   };
 
-  const fetchAndTailor = async () => {
-    if (!postingUrl.trim()) return;
+  // Pipeline. Default uses the job's metadata (title + company + location) so
+  // the backend WebSearches for the posting itself. Pass `manualUrl` only as a
+  // user-typed fallback when auto-search fails.
+  const fetchAndTailor = async (jobArg, manualUrl) => {
+    const job = jobArg || activeJob;
+    if (!job) return;
+    const useUrl = (manualUrl || "").trim();
     setLoading(true); setError(""); setFetchNote("");
     try {
-      setLoadStage("Fetching job description from URL…");
-      const fetched = await api("/jobs/fetch-description", {url: postingUrl.trim()});
+      setLoadStage(useUrl ? "Fetching job description…" : "Searching for the posting…");
+      const payload = useUrl
+        ? {url: useUrl}
+        : {job: {title: job.title, company: job.company, location: job.location}};
+      const fetched = await api("/jobs/fetch-description", payload);
       const fetchedJd = fetched.jobDescription || "";
-      if (!fetchedJd) throw new Error("Could not extract a job description from that URL.");
+      if (!fetchedJd) throw new Error("Could not find the job description automatically. Paste the posting URL below to retry.");
       setJd(fetchedJd);
       if (fetched.fetchOk === false || fetched.note) {
         setFetchNote(fetched.note || "Partial extraction — verify before submitting.");
       }
+      if (fetched.postingUrl) setPostingUrl(fetched.postingUrl);
 
       setLoadStage("Analyzing fit & writing cover letter…");
       const [analysis, cl] = await Promise.all([
         api("/analyze",       {resume:baseResume, jobDescription:fetchedJd}),
         api("/cover-letter",  {resume:baseResume, jobDescription:fetchedJd,
-                                company:fetched.company || activeJob.company,
-                                role:fetched.role || activeJob.title, userName}),
+                                company:fetched.company || job.company,
+                                role:fetched.role || job.title, userName}),
       ]);
       const finalScore = analysis.scores?.overall || 0;
       setScore(finalScore);
@@ -1095,34 +1107,49 @@ function ApplicationsTab({resume, tailored, queue, setQueue, userName}) {
         <Modal title={`Apply: ${activeJob.title} @ ${activeJob.company}`} onClose={()=>setActiveJob(null)} wide>
           {stage==="idle" && (
             <div className="space-y-4">
-              <div>
-                <label className="block text-xs uppercase tracking-wider text-slate-500 font-semibold mb-2">Job posting URL</label>
-                <input type="url" className="w-full px-4 py-3 text-sm"
-                  placeholder="https://www.linkedin.com/jobs/view/…"
-                  value={postingUrl} onChange={e=>setPostingUrl(e.target.value)}
-                  onKeyDown={e=>e.key==='Enter' && !loading && postingUrl && fetchAndTailor()}/>
-                <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-                  Paste the actual posting URL. JobMate fetches it, extracts the description, and runs the full tailoring pipeline automatically — no copy-paste of the JD needed.
-                </p>
-              </div>
-              {fetchNote && (
+              {/* Default state: pipeline auto-runs as soon as the modal opens. */}
+              {loading && (
+                <div className="card p-5">
+                  <div className="h-1 rounded-full bg-slate-800 overflow-hidden mb-3">
+                    <div className="h-full shimmer rounded-full"/>
+                  </div>
+                  <div className="text-center text-sm text-slate-200 pulse-soft">{loadStage || "Working…"}</div>
+                  <div className="text-center text-xs text-slate-500 mt-1.5">
+                    {activeJob.title} <span className="text-slate-700">·</span> {activeJob.company}
+                  </div>
+                </div>
+              )}
+
+              {fetchNote && !loading && !error && (
                 <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-xs text-amber-200">
                   ⚠ {fetchNote}
                 </div>
               )}
-              {error && <p className="text-rose-400 text-xs">{error}</p>}
-              {loading && loadStage && (
-                <div className="card p-3">
-                  <div className="h-1 rounded-full bg-slate-800 overflow-hidden mb-2">
-                    <div className="h-full shimmer rounded-full"/>
+
+              {/* Fallback: URL paste appears only after auto-fetch fails. */}
+              {error && (
+                <div className="space-y-3">
+                  <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 text-xs text-rose-200">
+                    ⚠ {error}
                   </div>
-                  <div className="text-center text-xs text-slate-300 pulse-soft">{loadStage}</div>
+                  <div>
+                    <label className="block text-xs uppercase tracking-wider text-slate-500 font-semibold mb-2">
+                      Fallback · paste the posting URL
+                    </label>
+                    <input type="url" className="w-full px-4 py-3 text-sm"
+                      placeholder="https://www.linkedin.com/jobs/view/…"
+                      value={postingUrl} onChange={e=>setPostingUrl(e.target.value)}
+                      onKeyDown={e=>e.key==='Enter' && !loading && postingUrl && fetchAndTailor(activeJob, postingUrl)}/>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={()=>fetchAndTailor(activeJob)} disabled={loading}
+                      className="flex-1 btn btn-ghost py-2.5 text-sm">↻ Retry auto-search</button>
+                    <button onClick={()=>fetchAndTailor(activeJob, postingUrl)}
+                      disabled={!postingUrl.trim()||loading}
+                      className="flex-1 btn btn-primary py-2.5 text-sm">Use this URL →</button>
+                  </div>
                 </div>
               )}
-              <button onClick={fetchAndTailor} disabled={!postingUrl.trim()||loading}
-                className="w-full btn btn-primary py-3 text-sm">
-                {loading ? "Working…" : "✨ Fetch JD + Tailor + Cover Letter"}
-              </button>
             </div>
           )}
 

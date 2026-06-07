@@ -459,23 +459,46 @@ Return ONLY valid JSON:
 
 @app.route("/api/jobs/fetch-description", methods=["POST"])
 def fetch_job_description():
+    """Fetch a job description either from a known URL or by searching for the
+    posting given {title, company, location}. The latter is what the Apply flow
+    uses so the user doesn't have to paste anything."""
     d = request.json or {}
     url = (d.get("url") or "").strip()
-    if not url:
-        return jsonify({"error": "url is required"}), 400
-    if not (url.startswith("http://") or url.startswith("https://")):
-        return jsonify({"error": "url must start with http:// or https://"}), 400
+    job = d.get("job") or {}
+    title = (job.get("title") or "").strip()
+    company = (job.get("company") or "").strip()
+    location = (job.get("location") or "").strip()
+
+    if not url and not (title and company):
+        return jsonify({"error": "Provide either `url` or `job: {title, company, location}`"}), 400
+
+    if url:
+        if not (url.startswith("http://") or url.startswith("https://")):
+            return jsonify({"error": "url must start with http:// or https://"}), 400
+        tools = ["WebFetch"]
+        instruction = f"Fetch this job posting URL and extract the details:\n{url}"
+    else:
+        tools = ["WebSearch", "WebFetch"]
+        loc_clause = f" in {location}" if location else ""
+        instruction = (
+            f"Find the current job posting for \"{title}\" at {company}{loc_clause}.\n"
+            f"1. Use WebSearch to locate it. Try the company's own careers page first, "
+            f"then job boards (LinkedIn, Indeed, Glassdoor, Lever, Greenhouse).\n"
+            f"2. Use WebFetch on the best match to extract the full job description.\n"
+            f"3. If you can't find an exact title match, return the closest current "
+            f"opening at the same company that fits the role.\n"
+            f"4. If no current posting exists, set fetchOk=false and explain in note."
+        )
 
     async def _fetch():
         opts = ClaudeAgentOptions(
-            allowed_tools=["WebFetch"],
+            allowed_tools=tools,
             system_prompt=(
-                "You extract job posting details from a single URL. "
+                "You extract job posting details. "
                 "Return ONLY a JSON object — no prose, no markdown fences."
             ),
         )
-        prompt = f"""Fetch this job posting URL and extract the details:
-{url}
+        prompt = f"""{instruction}
 
 If the page requires login or is blocked, return the best information you can
 infer from any accessible content. Set "fetchOk" to false if you could not get
@@ -486,9 +509,10 @@ Return ONLY valid JSON:
   "company": "string",
   "role": "string",
   "location": "string",
+  "postingUrl": "the URL of the actual posting you found and fetched (empty string if none)",
   "jobDescription": "the full job description as plain text",
   "fetchOk": true,
-  "note": "short note if anything is approximate or missing"
+  "note": "short note if anything is approximate, missing, or if the source was a cached/secondary listing"
 }}"""
         out = []
         async for message in query(prompt=prompt, options=opts):
