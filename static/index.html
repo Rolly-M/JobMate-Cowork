@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>JobMate — AI Resume & Job Application Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css"/>
+<style>
+  :root {
+    --bg-0:#070815;
+    --bg-1:#0d0f25;
+    --bg-2:#141733;
+    --line:rgba(148,163,184,0.10);
+    --line-hi:rgba(139,92,246,0.45);
+    --text:#e2e8f0;
+    --muted:#94a3b8;
+    --dim:#64748b;
+    --violet:#8b5cf6;
+    --indigo:#6366f1;
+    --cyan:#22d3ee;
+    --emerald:#10b981;
+    --amber:#f59e0b;
+    --rose:#f43f5e;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg-0);
+    color:var(--text);
+    font-family:'Inter',system-ui,-apple-system,sans-serif;
+    font-feature-settings:"cv11","ss01";
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+  body::before{
+    content:'';position:fixed;inset:0;z-index:-2;
+    background:
+      radial-gradient(ellipse 70% 50% at 20% 10%, rgba(139,92,246,0.18), transparent 60%),
+      radial-gradient(ellipse 60% 50% at 90% 90%, rgba(34,211,238,0.10), transparent 60%),
+      radial-gradient(ellipse 90% 70% at 50% 50%, rgba(99,102,241,0.06), transparent 70%),
+      var(--bg-0);
+  }
+  body::after{
+    content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
+    background-image:
+      linear-gradient(rgba(148,163,184,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148,163,184,0.04) 1px, transparent 1px);
+    background-size:48px 48px;
+    mask-image:radial-gradient(ellipse 80% 60% at 50% 30%, black, transparent 80%);
+  }
+  .display{font-family:'Space Grotesk',Inter,sans-serif;letter-spacing:-0.02em}
+
+  /* Cards / glass */
+  .card{
+    background:linear-gradient(180deg, rgba(20,23,51,0.85), rgba(13,15,37,0.85));
+    border:1px solid var(--line);
+    border-radius:18px;
+    backdrop-filter:blur(8px);
+    transition:border-color .25s ease, transform .25s ease, box-shadow .25s ease;
+  }
+  .card:hover{border-color:rgba(139,92,246,0.25)}
+  .card-hot{
+    background:linear-gradient(180deg, rgba(30,27,75,0.85), rgba(15,15,40,0.9));
+    border:1px solid rgba(139,92,246,0.30);
+    box-shadow:0 20px 60px -20px rgba(99,102,241,0.35);
+  }
+  .ring-glow{box-shadow:0 0 40px -8px rgba(139,92,246,0.45)}
+  .danger-glow{box-shadow:0 0 32px -4px rgba(244,63,94,0.45)}
+
+  /* Inputs */
+  textarea,input,select{
+    background:rgba(7,8,21,0.6);
+    border:1px solid var(--line);
+    color:var(--text);
+    border-radius:12px;
+    transition:border-color .15s ease, box-shadow .15s ease;
+  }
+  textarea:focus,input:focus,select:focus{
+    outline:none;
+    border-color:var(--indigo);
+    box-shadow:0 0 0 4px rgba(99,102,241,0.18);
+  }
+
+  /* Buttons */
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:.5rem;
+    border-radius:12px;font-weight:600;
+    transition:all .2s ease;
+    cursor:pointer;
+    border:1px solid transparent;
+  }
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn-primary{
+    background:linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #22d3ee 130%);
+    color:#fff;
+    box-shadow:0 8px 24px -8px rgba(99,102,241,0.55), inset 0 1px 0 rgba(255,255,255,0.2);
+  }
+  .btn-primary:hover:not(:disabled){transform:translateY(-1px);filter:brightness(1.08);box-shadow:0 12px 32px -8px rgba(99,102,241,0.7), inset 0 1px 0 rgba(255,255,255,0.25)}
+  .btn-ghost{
+    background:rgba(148,163,184,0.06);
+    color:var(--muted);
+    border:1px solid var(--line);
+  }
+  .btn-ghost:hover:not(:disabled){background:rgba(139,92,246,0.10);border-color:rgba(139,92,246,0.4);color:#fff}
+  .btn-success{background:linear-gradient(135deg,#10b981,#059669);color:#fff;box-shadow:0 8px 20px -8px rgba(16,185,129,.5)}
+  .btn-success:hover:not(:disabled){filter:brightness(1.08);transform:translateY(-1px)}
+  .btn-danger{background:linear-gradient(135deg,#f43f5e,#dc2626);color:#fff}
+  .btn-danger:hover:not(:disabled){filter:brightness(1.08);transform:translateY(-1px)}
+
+  /* Gradient text */
+  .grad-text{
+    background:linear-gradient(135deg, #c4b5fd 0%, #a5b4fc 40%, #67e8f9 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .grad-text-hot{
+    background:linear-gradient(135deg, #f0abfc 0%, #a78bfa 50%, #22d3ee 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+
+  /* Step pills */
+  .step{border:1px solid var(--line);background:rgba(13,15,37,0.6);transition:all .25s ease}
+  .step-active{border-color:rgba(139,92,246,0.55);background:rgba(99,102,241,0.10);box-shadow:0 0 0 4px rgba(139,92,246,0.10)}
+  .step-done{border-color:rgba(16,185,129,0.5);background:rgba(16,185,129,0.08)}
+
+  /* Drop zone */
+  .dropzone{
+    border:2px dashed rgba(148,163,184,0.25);
+    background:radial-gradient(ellipse at center top, rgba(139,92,246,0.06), transparent 70%), rgba(7,8,21,0.4);
+    transition:all .25s ease;
+  }
+  .dropzone:hover,.dropzone.drag{
+    border-color:rgba(139,92,246,0.7);
+    background:radial-gradient(ellipse at center top, rgba(139,92,246,0.16), transparent 70%), rgba(99,102,241,0.05);
+    transform:translateY(-1px);
+  }
+
+  /* Tabs */
+  .tab{color:var(--muted);transition:all .15s ease;border:1px solid transparent}
+  .tab:hover{color:#fff;background:rgba(148,163,184,0.06)}
+  .tab-active{
+    color:#fff;
+    background:linear-gradient(135deg, rgba(139,92,246,0.22), rgba(99,102,241,0.10));
+    border-color:rgba(139,92,246,0.35);
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:rgba(139,92,246,0.25);border-radius:8px}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(139,92,246,0.45)}
+
+  /* Badges */
+  .badge{font-size:11px;padding:2px 8px;border-radius:999px;font-weight:600;letter-spacing:.02em}
+  .badge-tier1{background:rgba(16,185,129,0.14);color:#34d399;border:1px solid rgba(16,185,129,0.35)}
+  .badge-tier2{background:rgba(139,92,246,0.14);color:#c4b5fd;border:1px solid rgba(139,92,246,0.35)}
+  .badge-tier3{background:rgba(245,158,11,0.14);color:#fbbf24;border:1px solid rgba(245,158,11,0.35)}
+
+  /* Score ring */
+  .score-ring{transition:stroke-dashoffset 1.2s cubic-bezier(.22,1,.36,1)}
+
+  /* Pulse */
+  @keyframes pulse-soft{0%,100%{opacity:1}50%{opacity:.55}}
+  .pulse-soft{animation:pulse-soft 1.8s ease-in-out infinite}
+
+  /* Shimmer for loading */
+  @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+  .shimmer{
+    background:linear-gradient(90deg, rgba(139,92,246,0.0) 0%, rgba(139,92,246,0.18) 50%, rgba(139,92,246,0.0) 100%);
+    background-size:200% 100%;
+    animation:shimmer 1.8s linear infinite;
+  }
+
+  /* Float-in */
+  @keyframes float-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  .float-in{animation:float-in .35s cubic-bezier(.22,1,.36,1) both}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- ───────── LOGO (SVG sprite) ───────── -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="jm-grad" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#a78bfa"/>
+      <stop offset=".5" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </linearGradient>
+    <linearGradient id="jm-grad-ink" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0d0f25"/>
+      <stop offset="1" stop-color="#0a0b1d"/>
+    </linearGradient>
+    <symbol id="jm-logo" viewBox="0 0 48 48">
+      <rect width="48" height="48" rx="13" fill="url(#jm-grad)"/>
+      <rect x="1" y="1" width="46" height="46" rx="12" fill="url(#jm-grad-ink)" opacity="0.55"/>
+      <!-- Stylized J with upward chevron — career advancement -->
+      <path d="M28.5 11.5 L28.5 28.5 Q28.5 35.5 21.5 35.5 Q15 35.5 15 29"
+            stroke="white" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <path d="M21.5 17.5 L28.5 10.5 L35.5 17.5"
+            stroke="white" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </symbol>
+  </defs>
+</svg>
+
+<script type="text/babel">
+const {useState, useEffect, useRef, useCallback} = React;
+const API = "http://localhost:5000/api";
+
+// ── API helper ────────────────────────────────────────────────────────────────
+async function api(path, body) {
+  const r = await fetch(API + path, {
+    method: body ? "POST" : "GET",
+    headers: {"Content-Type":"application/json"},
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!r.ok) {
+    const e = await r.json().catch(()=>({error:"Network error"}));
+    throw new Error(e.error || "Request failed");
+  }
+  return r.json();
+}
+
+async function uploadResume(file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  const r = await fetch(API + "/resume/upload", {method:"POST", body:fd});
+  if (!r.ok) {
+    const e = await r.json().catch(()=>({error:"Upload failed"}));
+    throw new Error(e.error || "Upload failed");
+  }
+  return r.json();
+}
+
+// ── Logo component ────────────────────────────────────────────────────────────
+function Logo({size=40}) {
+  return <svg width={size} height={size} aria-label="JobMate"><use href="#jm-logo"/></svg>;
+}
+
+function Wordmark({size=40}) {
+  return (
+    <div className="flex items-center gap-3">
+      <Logo size={size}/>
+      <div className="leading-none">
+        <div className="display font-extrabold text-2xl tracking-tight">
+          <span className="text-white">job</span><span className="grad-text-hot">mate</span>
+        </div>
+        <div className="text-[10px] uppercase tracking-[0.22em] text-slate-500 mt-1">AI Application Studio</div>
+      </div>
+    </div>
+  );
+}
+
+// ── Score Ring ────────────────────────────────────────────────────────────────
+function ScoreRing({score, size=120, stroke=10}) {
+  const r = (size-stroke*2)/2, c = 2*Math.PI*r;
+  const offset = c - (score/100)*c;
+  const color = score>=80?"#10b981":score>=65?"#f59e0b":"#f43f5e";
+  return (
+    <div className="relative inline-block">
+      <svg width={size} height={size} className="-rotate-90">
+        <defs>
+          <linearGradient id={`sr-${score}-${size}`} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor={color} stopOpacity="0.9"/>
+            <stop offset="1" stopColor={color}/>
+          </linearGradient>
+        </defs>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(148,163,184,0.10)" strokeWidth={stroke}/>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={`url(#sr-${score}-${size})`} strokeWidth={stroke}
+          strokeLinecap="round" strokeDasharray={c} strokeDashoffset={offset} className="score-ring"
+          style={{filter:`drop-shadow(0 0 8px ${color}aa)`}}/>
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="display font-extrabold text-white" style={{fontSize:size*0.28}}>{score}</span>
+        <span className="text-[10px] uppercase tracking-wider text-slate-500">/ 100</span>
+      </div>
+    </div>
+  );
+}
+
+// ── Score Bar ─────────────────────────────────────────────────────────────────
+function ScoreBar({label, value, weight}) {
+  const color = value>=80?"linear-gradient(90deg,#10b981,#34d399)":value>=65?"linear-gradient(90deg,#f59e0b,#fbbf24)":"linear-gradient(90deg,#f43f5e,#fb7185)";
+  return (
+    <div className="mb-3">
+      <div className="flex justify-between text-xs mb-1.5">
+        <span className="text-slate-300 font-medium">{label}</span>
+        <span className="text-slate-400 font-mono">{value}<span className="text-slate-600"> · {weight}%</span></span>
+      </div>
+      <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+        <div className="h-full rounded-full transition-all duration-700" style={{width:`${value}%`,background:color}}/>
+      </div>
+    </div>
+  );
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function Toast({message, type="info", onClose}) {
+  useEffect(()=>{const t=setTimeout(onClose,4000);return()=>clearTimeout(t)},[]);
+  const styles = {
+    info:    "from-indigo-500 to-violet-500",
+    success: "from-emerald-500 to-teal-500",
+    error:   "from-rose-500 to-red-500",
+    warning: "from-amber-500 to-orange-500",
+  };
+  return (
+    <div className="fixed bottom-6 right-6 z-50 float-in">
+      <div className={`bg-gradient-to-r ${styles[type]} p-[1px] rounded-xl shadow-2xl`}>
+        <div className="bg-slate-950 rounded-xl px-4 py-3 flex items-center gap-3 max-w-sm">
+          <span className="text-sm text-white">{message}</span>
+          <button onClick={onClose} className="text-slate-400 hover:text-white text-lg leading-none ml-auto">×</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
+function Modal({title, children, onClose, wide}) {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-80 backdrop-blur-sm flex items-center justify-center z-40 p-4"
+         onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className={`card p-6 ${wide?"max-w-3xl":"max-w-lg"} w-full max-h-[90vh] overflow-y-auto ring-glow float-in`}>
+        <div className="flex justify-between items-center mb-5">
+          <h2 className="display text-xl font-bold text-white">{title}</h2>
+          <button onClick={onClose} className="text-slate-500 hover:text-white text-2xl leading-none w-8 h-8 rounded-lg hover:bg-slate-800 flex items-center justify-center">×</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ── Resume Upload Zone ────────────────────────────────────────────────────────
+function ResumeUpload({resume, filename, onLoaded, onClear, onToast}) {
+  const [busy, setBusy] = useState(false);
+  const [drag, setDrag] = useState(false);
+  const inputRef = useRef();
+
+  const handle = async file => {
+    if (!file) return;
+    if (file.size > 10*1024*1024) { onToast({message:"File exceeds 10 MB limit.",type:"error"}); return; }
+    setBusy(true);
+    try {
+      const r = await uploadResume(file);
+      onLoaded({filename:r.filename, text:r.text, wordCount:r.wordCount});
+      onToast({message:`Loaded ${r.filename} (${r.wordCount} words)`, type:"success"});
+    } catch(e) {
+      onToast({message:e.message, type:"error"});
+    }
+    setBusy(false);
+  };
+
+  const onDrop = e => {
+    e.preventDefault(); setDrag(false);
+    handle(e.dataTransfer.files[0]);
+  };
+
+  if (resume) {
+    return (
+      <div className="card p-5">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-500 flex items-center justify-center flex-shrink-0 ring-glow">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="9" y1="13" x2="15" y2="13"/>
+              <line x1="9" y1="17" x2="15" y2="17"/>
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-white font-semibold truncate">{filename || "Resume loaded"}</div>
+            <div className="text-xs text-slate-500 mt-0.5">{resume.split(/\s+/).filter(Boolean).length} words · ready to analyze</div>
+          </div>
+          <button onClick={()=>inputRef.current.click()} className="btn btn-ghost px-3 py-1.5 text-xs">Replace</button>
+          <button onClick={onClear} className="btn btn-ghost px-3 py-1.5 text-xs text-rose-400 hover:text-rose-300">Remove</button>
+          <input ref={inputRef} type="file" accept=".pdf,.docx,.txt,.md" className="hidden"
+                 onChange={e=>handle(e.target.files[0])}/>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      onDragOver={e=>{e.preventDefault();setDrag(true)}}
+      onDragLeave={()=>setDrag(false)}
+      onDrop={onDrop}
+      onClick={()=>!busy && inputRef.current.click()}
+      className={`dropzone ${drag?"drag":""} cursor-pointer rounded-2xl p-10 text-center`}>
+      <input ref={inputRef} type="file" accept=".pdf,.docx,.txt,.md" className="hidden"
+             onChange={e=>handle(e.target.files[0])}/>
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500/20 to-cyan-400/20 border border-violet-500/30 flex items-center justify-center ring-glow">
+          {busy ? (
+            <svg className="animate-spin" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#c4b5fd" strokeWidth="2.5">
+              <circle cx="12" cy="12" r="9" strokeOpacity=".25"/>
+              <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round"/>
+            </svg>
+          ) : (
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#c4b5fd" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          )}
+        </div>
+        <div>
+          <div className="display text-xl font-bold text-white mb-1">
+            {busy ? "Extracting resume…" : "Drop your resume here"}
+          </div>
+          <div className="text-sm text-slate-400">
+            {busy ? "Parsing file contents" : <>or <span className="text-violet-300 underline-offset-2 underline decoration-violet-500/40">click to browse</span></>}
+          </div>
+        </div>
+        <div className="text-[11px] uppercase tracking-wider text-slate-600 mt-2">PDF · DOCX · TXT · MD · max 10 MB</div>
+      </div>
+    </div>
+  );
+}
+
+// ── Resume Tab ────────────────────────────────────────────────────────────────
+function ResumeTab({resume, filename, setResumeData, jd, setJd, onToast}) {
+  const [step, setStep]             = useState(0);
+  const [results, setResults]       = useState({});
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState("");
+  const [tailored, setTailored]     = useState("");
+
+  const steps = [
+    {id:1, label:"Score & Gap Analysis",   key:"analysis"},
+    {id:2, label:"XYZ Bullet Rewrites",    key:"bullets"},
+    {id:3, label:"ATS Audit",              key:"ats"},
+    {id:4, label:"Hiring Manager Review",  key:"hmReview"},
+  ];
+
+  const runStep = async (stepNum) => {
+    setLoading(true); setError("");
+    try {
+      let r;
+      if (stepNum===1) r = await api("/analyze",          {resume, jobDescription:jd});
+      if (stepNum===2) r = await api("/tailor/bullets",   {resume, jobDescription:jd});
+      if (stepNum===3) r = await api("/tailor/ats",       {resume});
+      if (stepNum===4) r = await api("/tailor/hm-review", {resume, jobDescription:jd});
+
+      setResults(prev=>({...prev, [steps[stepNum-1].key]: r}));
+      setStep(stepNum);
+      if (stepNum===4) {
+        const f = await api("/tailor/finalize", {resume, jobDescription:jd});
+        setTailored(f.tailoredResume);
+        setResults(prev=>({...prev, finalize:f}));
+        setStep(5);
+      }
+    } catch(e) { setError(e.message); }
+    setLoading(false);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Resume + JD input */}
+      {step===0 && (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="w-1.5 h-1.5 rounded-full bg-violet-400"/>
+                <h3 className="display font-bold text-white text-sm uppercase tracking-wider">Your Resume</h3>
+              </div>
+              <ResumeUpload resume={resume} filename={filename}
+                onLoaded={d=>setResumeData({resume:d.text, filename:d.filename})}
+                onClear={()=>setResumeData({resume:"", filename:""})}
+                onToast={onToast}/>
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"/>
+                <h3 className="display font-bold text-white text-sm uppercase tracking-wider">Job Description</h3>
+              </div>
+              <div className="card p-5">
+                <textarea className="w-full h-64 px-4 py-3 text-sm resize-none"
+                  placeholder="Paste the job description you're targeting…"
+                  value={jd} onChange={e=>setJd(e.target.value)}/>
+                <div className="text-xs text-slate-500 mt-2 font-mono">{jd.split(/\s+/).filter(Boolean).length} words</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Pipeline preview / launch */}
+          <div className={`card ${resume && jd ? "card-hot" : ""} p-6`}>
+            <div className="flex items-start justify-between mb-5">
+              <div>
+                <h3 className="display text-lg font-bold text-white">4-Step Optimization Pipeline</h3>
+                <p className="text-slate-400 text-sm mt-1">Run all four to ship an ATS-safe, hiring-manager-ready resume.</p>
+              </div>
+              <div className="text-xs text-slate-500 hidden md:block">
+                {resume && jd ? <span className="grad-text font-semibold">● Ready</span> : <span>○ Add resume & JD</span>}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+              {steps.map((s,i)=>(
+                <div key={s.id} className="step rounded-xl p-4">
+                  <div className="text-[11px] uppercase tracking-wider text-slate-500 mb-1.5 font-semibold">Step {s.id}</div>
+                  <div className="text-sm text-slate-200 font-medium leading-tight">{s.label}</div>
+                </div>
+              ))}
+            </div>
+            <button onClick={()=>runStep(1)} disabled={loading || !resume || !jd}
+              className="btn btn-primary w-full py-3.5 text-sm">
+              {loading ? "Analyzing…" : "Start Analysis →"}
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Steps in progress */}
+      {step>0 && step<5 && (
+        <div className="space-y-4">
+          <div className="card p-4">
+            <div className="flex items-center gap-2">
+              {steps.map((s,i)=>(
+                <React.Fragment key={s.id}>
+                  <div className={`flex-1 flex flex-col items-center gap-1 px-3 py-2 rounded-lg ${
+                    step>i?"step step-done":step===i+1?"step step-active":"step"
+                  }`}>
+                    <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Step {s.id}</div>
+                    <div className="text-xs text-white font-medium text-center hidden lg:block leading-tight">{s.label}</div>
+                    <div className="text-base">{step>i?"✓":step===i+1?"●":"○"}</div>
+                  </div>
+                  {i<3 && <div className={`w-6 h-0.5 ${step>i+1?"bg-emerald-500":"bg-slate-700"} transition-colors`}/>}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+
+          {results.analysis && <AnalysisResult data={results.analysis}/>}
+          {results.bullets  && <BulletResult data={results.bullets}/>}
+          {results.ats      && <AtsResult data={results.ats}/>}
+
+          {!loading && step<4 && (
+            <button onClick={()=>runStep(step+1)} className="btn btn-primary w-full py-3.5 text-sm">
+              {step===3 ? "Run Hiring Manager Review (Final) →" : `Run Step ${step+1}: ${steps[step].label} →`}
+            </button>
+          )}
+          {loading && (
+            <div className="card p-5">
+              <div className="h-1 rounded-full bg-slate-800 overflow-hidden mb-3">
+                <div className="h-full shimmer rounded-full"/>
+              </div>
+              <div className="text-center text-slate-300 pulse-soft text-sm">
+                Running Step {step+1}: <span className="grad-text font-semibold">{steps[step]?.label}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {step===5 && (
+        <FinalScoreCard results={results} tailored={tailored}
+          onReset={()=>{setStep(0);setResults({});setTailored("");}}
+          onToast={onToast}/>
+      )}
+
+      {error && (
+        <div className="card p-4 border-rose-500/40 text-rose-300 text-sm danger-glow">⚠ {error}</div>
+      )}
+    </div>
+  );
+}
+
+// ── Analysis Result (Step 1) ──────────────────────────────────────────────────
+function AnalysisResult({data}) {
+  const {scores={}, missingKeywords=[], strengths=[], summary="", wouldInterview} = data;
+  return (
+    <div className="card p-6 float-in">
+      <div className="flex items-center justify-between mb-5">
+        <h3 className="display font-bold text-white">Step 1 · Score & Gap Analysis</h3>
+        <span className={`badge ${wouldInterview?"badge-tier1":"badge-tier3"}`}>
+          {wouldInterview ? "✓ Would Interview" : "⚠ Not Yet"}
+        </span>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
+        <div className="flex justify-center">
+          <ScoreRing score={scores.overall||0} size={140}/>
+        </div>
+        <div className="lg:col-span-2">
+          <ScoreBar label="Keyword Overlap" value={scores.keywordOverlap||0} weight={30}/>
+          <ScoreBar label="Skills Match"    value={scores.skillsMatch||0}    weight={25}/>
+          <ScoreBar label="Outcomes"        value={scores.outcomes||0}        weight={25}/>
+          <ScoreBar label="Role Fit"        value={scores.roleFit||0}         weight={20}/>
+        </div>
+      </div>
+      {summary && <p className="text-slate-400 text-sm mt-5 pt-4 border-t border-slate-800 leading-relaxed">{summary}</p>}
+      {missingKeywords.length>0 && (
+        <div className="mt-4">
+          <div className="text-[11px] uppercase tracking-wider text-rose-400 font-semibold mb-2">Missing Keywords</div>
+          <div className="flex flex-wrap gap-1.5">
+            {missingKeywords.map(k=>(
+              <span key={k} className="bg-rose-500/10 text-rose-300 border border-rose-500/30 text-xs px-2.5 py-1 rounded-md font-medium">{k}</span>
+            ))}
+          </div>
+        </div>
+      )}
+      {strengths.length>0 && (
+        <div className="mt-3">
+          <div className="text-[11px] uppercase tracking-wider text-emerald-400 font-semibold mb-2">Strengths</div>
+          <div className="flex flex-wrap gap-1.5">
+            {strengths.map(s=>(
+              <span key={s} className="bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 text-xs px-2.5 py-1 rounded-md font-medium">{s}</span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Bullet Result (Step 2) ────────────────────────────────────────────────────
+function BulletResult({data}) {
+  const {rewrites=[]} = data;
+  return (
+    <div className="card p-6 float-in">
+      <h3 className="display font-bold text-white mb-5">Step 2 · XYZ Bullet Rewrites</h3>
+      <div className="space-y-3">
+        {rewrites.map((r,i)=>(
+          <div key={i} className="rounded-xl overflow-hidden border border-slate-800">
+            <div className="bg-rose-500/5 border-b border-slate-800 px-4 py-2.5 text-xs text-rose-200">
+              <span className="text-rose-400 font-semibold mr-2">BEFORE</span>{r.original}
+            </div>
+            <div className="bg-emerald-500/5 px-4 py-2.5 text-xs text-emerald-200">
+              <span className="text-emerald-400 font-semibold mr-2">AFTER</span>{r.rewritten}
+            </div>
+            {r.formula && <div className="bg-slate-900/50 px-4 py-1.5 text-[11px] text-slate-500 italic">{r.formula}</div>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── ATS Result (Step 3) ───────────────────────────────────────────────────────
+function AtsResult({data}) {
+  const {issues=[], overallAtsScore=0, summary=""} = data;
+  const critical = issues.filter(i=>i.severity==="critical");
+  const warnings = issues.filter(i=>i.severity==="warning");
+  return (
+    <div className="card p-6 float-in">
+      <div className="flex justify-between items-center mb-5">
+        <h3 className="display font-bold text-white">Step 3 · ATS Audit</h3>
+        <div className={`badge ${overallAtsScore>=80?"badge-tier1":"badge-tier3"}`}>
+          {overallAtsScore}/100 ATS
+        </div>
+      </div>
+      {critical.length>0 && (
+        <div className="mb-4">
+          <div className="text-[11px] uppercase tracking-wider text-rose-400 font-semibold mb-2">Critical ({critical.length})</div>
+          {critical.map((i,idx)=>(
+            <div key={idx} className="bg-rose-500/5 border border-rose-500/20 rounded-xl p-3.5 mb-2 text-xs">
+              <div className="text-rose-200 font-semibold">{i.section}: {i.problem}</div>
+              <div className="text-slate-400 mt-1.5">Fix: {i.fix}</div>
+              {i.before && <div className="mt-1.5 text-slate-500">Before: <code className="text-rose-300 bg-slate-900 px-1.5 py-0.5 rounded">{i.before}</code></div>}
+              {i.after  && <div className="text-slate-500 mt-0.5">After: <code className="text-emerald-300 bg-slate-900 px-1.5 py-0.5 rounded">{i.after}</code></div>}
+            </div>
+          ))}
+        </div>
+      )}
+      {warnings.length>0 && (
+        <div>
+          <div className="text-[11px] uppercase tracking-wider text-amber-400 font-semibold mb-2">Warnings ({warnings.length})</div>
+          {warnings.map((i,idx)=>(
+            <div key={idx} className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3.5 mb-2 text-xs">
+              <div className="text-amber-200 font-semibold">{i.section}: {i.problem}</div>
+              <div className="text-slate-400 mt-1.5">{i.fix}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {summary && <p className="text-slate-500 text-xs mt-3 italic">{summary}</p>}
+    </div>
+  );
+}
+
+// ── Final Score Card ──────────────────────────────────────────────────────────
+function FinalScoreCard({results, tailored, onReset, onToast}) {
+  const scores = results.hmReview?.scores || results.analysis?.scores || {};
+  const overall = scores.overall || 0;
+  const toClear = results.hmReview?.changesToClear80 || [];
+  const wouldInterview = results.hmReview?.wouldInterview;
+  const copy = () => {
+    navigator.clipboard.writeText(tailored).then(()=>{
+      onToast({message:"Tailored resume copied to clipboard", type:"success"});
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className={`card p-6 float-in ${overall>=80?"card-hot":""}`}>
+        <div className="flex flex-col lg:flex-row items-center gap-8">
+          <div className="flex-shrink-0">
+            <ScoreRing score={overall} size={160} stroke={12}/>
+          </div>
+          <div className="flex-1 w-full">
+            <div className="display text-xs uppercase tracking-[0.18em] text-slate-500 mb-2">Final Score</div>
+            <div className="grid grid-cols-2 gap-x-6">
+              <ScoreBar label="Keyword Overlap" value={scores.keywordOverlap||0} weight={30}/>
+              <ScoreBar label="Skills Match"    value={scores.skillsMatch||0}    weight={25}/>
+              <ScoreBar label="Outcomes"        value={scores.outcomes||0}        weight={25}/>
+              <ScoreBar label="Role Fit"        value={scores.roleFit||0}         weight={20}/>
+            </div>
+            <div className={`mt-3 text-sm font-semibold ${wouldInterview?"text-emerald-400":"text-amber-400"}`}>
+              {wouldInterview ? "✅ A hiring manager would interview you" : "⚠️ Not quite ready for interview stage"}
+            </div>
+            {results.hmReview?.interviewReason && (
+              <p className="text-slate-400 text-xs mt-1.5 leading-relaxed">{results.hmReview.interviewReason}</p>
+            )}
+          </div>
+        </div>
+        {overall<80 && toClear.length>0 && (
+          <div className="mt-5 pt-5 border-t border-slate-800">
+            <div className="text-[11px] uppercase tracking-wider text-amber-400 font-semibold mb-2">To clear 80%</div>
+            <ul className="space-y-1.5">
+              {toClear.map((c,i)=>(
+                <li key={i} className="text-sm text-slate-300 flex gap-2 items-start">
+                  <span className="text-amber-500 flex-shrink-0 mt-0.5">→</span>{c}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {tailored && (
+        <div className="card p-6 float-in">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="display font-bold text-white">Tailored Resume</h3>
+            <div className="flex gap-2">
+              <button onClick={copy} className="btn btn-ghost px-3 py-1.5 text-xs">Copy</button>
+              <button onClick={onReset} className="btn btn-ghost px-3 py-1.5 text-xs">Start Over</button>
+            </div>
+          </div>
+          <pre className="text-xs text-slate-300 bg-slate-950/60 border border-slate-800 rounded-xl p-4 overflow-auto max-h-96 whitespace-pre-wrap font-mono leading-relaxed">{tailored}</pre>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Jobs Tab ──────────────────────────────────────────────────────────────────
+function JobsTab({resume, tailored, onAddToQueue}) {
+  const [jobs, setJobs]         = useState([]);
+  const [loading, setLoading]   = useState(false);
+  const [location, setLocation] = useState("Calgary, AB");
+  const [remote, setRemote]     = useState(true);
+  const [queued, setQueued]     = useState(new Set());
+  const [toast, setToast]       = useState(null);
+  const [error, setError]       = useState("");
+
+  const search = async () => {
+    setLoading(true); setError("");
+    try {
+      const r = await api("/jobs/search", {resume: tailored||resume, location, includeRemote:remote});
+      setJobs(r.jobs || []);
+    } catch(e) { setError(e.message); }
+    setLoading(false);
+  };
+
+  const addToQueue = job => {
+    setQueued(q=>new Set([...q, job.id]));
+    onAddToQueue(job);
+    setToast({message:`${job.title} at ${job.company} added to queue`, type:"success"});
+  };
+
+  const tierClass = t => ({1:"badge-tier1",2:"badge-tier2",3:"badge-tier3"}[t]||"badge-tier2");
+
+  return (
+    <div className="space-y-5">
+      {toast && <Toast {...toast} onClose={()=>setToast(null)}/>}
+      <div className="card p-6">
+        <h3 className="display font-bold text-white mb-4">Find Best-Fit Jobs</h3>
+        <div className="flex flex-wrap gap-3 items-center">
+          <input className="flex-1 min-w-48 px-3.5 py-2.5 text-sm" placeholder="Location (e.g. Calgary, AB)"
+            value={location} onChange={e=>setLocation(e.target.value)}/>
+          <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none">
+            <input type="checkbox" className="w-4 h-4 rounded accent-violet-500" checked={remote} onChange={e=>setRemote(e.target.checked)}/>
+            Include Remote Canada
+          </label>
+          <button onClick={search} disabled={loading||!resume}
+            className="btn btn-primary px-5 py-2.5 text-sm">
+            {loading ? "Searching…" : "Search 20 Roles →"}
+          </button>
+        </div>
+        {!resume && <p className="text-amber-400 text-xs mt-3">Upload your resume in the Resume tab first.</p>}
+        {error && <p className="text-rose-400 text-xs mt-3">{error}</p>}
+      </div>
+
+      {loading && (
+        <div className="card p-5">
+          <div className="h-1 rounded-full bg-slate-800 overflow-hidden">
+            <div className="h-full shimmer rounded-full"/>
+          </div>
+        </div>
+      )}
+
+      {jobs.length>0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {jobs.map(job=>{
+            const isQueued = queued.has(job.id);
+            return (
+              <div key={job.id} className="card p-4 float-in">
+                <div className="flex justify-between items-start mb-2">
+                  <div className="min-w-0 flex-1 pr-2">
+                    <h4 className="font-semibold text-white text-sm truncate">{job.title}</h4>
+                    <p className="text-slate-400 text-xs mt-0.5 truncate">{job.company} · {job.location}</p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                    <span className={`badge ${tierClass(job.tier)}`}>{job.tierLabel}</span>
+                    <span className={`text-base font-bold ${job.matchScore>=80?"text-emerald-400":job.matchScore>=65?"text-amber-400":"text-rose-400"}`}>
+                      {job.matchScore}%
+                    </span>
+                  </div>
+                </div>
+                {job.salary && <p className="text-cyan-300 text-xs mb-2 font-medium">💰 {job.salary}</p>}
+                <p className="text-slate-500 text-xs mb-3 leading-relaxed line-clamp-3">{job.reason}</p>
+                {job.missingSkills?.length>0 && (
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {job.missingSkills.map(s=>(
+                      <span key={s} className="bg-slate-800 text-slate-400 text-[11px] px-2 py-0.5 rounded-md">⚠ {s}</span>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <a href={job.linkedinUrl} target="_blank" rel="noreferrer"
+                    className="flex-1 text-center btn btn-ghost text-xs px-2 py-1.5">LinkedIn</a>
+                  <a href={job.indeedUrl} target="_blank" rel="noreferrer"
+                    className="flex-1 text-center btn btn-ghost text-xs px-2 py-1.5">Indeed</a>
+                  <button onClick={()=>addToQueue(job)} disabled={isQueued}
+                    className={`flex-1 text-xs px-2 py-1.5 rounded-xl font-medium ${isQueued?"bg-slate-800 text-slate-500":"btn btn-primary"}`}>
+                    {isQueued ? "✓ Queued" : "+ Queue"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Applications Tab ──────────────────────────────────────────────────────────
+function ApplicationsTab({resume, tailored, queue, setQueue, userName}) {
+  const [activeJob, setActiveJob]     = useState(null);
+  const [jd, setJd]                   = useState("");
+  const [coverLetter, setCoverLetter] = useState("");
+  const [tailoredResume, setTailored] = useState(tailored||"");
+  const [missingFields, setMissing]   = useState([]);
+  const [userAnswers, setAnswers]     = useState({});
+  const [stage, setStage]             = useState("idle");
+  const [loading, setLoading]         = useState(false);
+  const [toast, setToast]             = useState(null);
+  const [lowScoreWarning, setWarning] = useState(false);
+  const [score, setScore]             = useState(0);
+  const [error, setError]             = useState("");
+  const [tosWarning, setTosWarning]   = useState(false);
+  const [tosPending, setTosPending]   = useState(null);
+  const tosAcknowledged = () => sessionStorage.getItem("jm_tos") === "yes";
+
+  const baseResume = tailored || resume;
+
+  const startApply = async job => {
+    if (!baseResume) { setToast({message:"Upload your resume in the Resume tab first.",type:"warning"}); return; }
+    if (!tosAcknowledged()) { setTosPending(job); setTosWarning(true); return; }
+    setActiveJob(job); setStage("idle"); setJd(""); setCoverLetter(""); setMissing([]); setError("");
+  };
+
+  const acceptTos = () => {
+    sessionStorage.setItem("jm_tos","yes");
+    setTosWarning(false);
+    if (tosPending) { setActiveJob(tosPending); setStage("idle"); setJd(""); setCoverLetter(""); setMissing([]); setError(""); }
+    setTosPending(null);
+  };
+
+  const runTailoring = async () => {
+    if (!jd) return;
+    setLoading(true); setError("");
+    try {
+      const [analysis, cl] = await Promise.all([
+        api("/analyze",       {resume:baseResume, jobDescription:jd}),
+        api("/cover-letter",  {resume:baseResume, jobDescription:jd, company:activeJob.company, role:activeJob.title, userName}),
+      ]);
+      const finalScore = analysis.scores?.overall || 0;
+      setScore(finalScore);
+      if (finalScore < 80) { setWarning(true); setLoading(false); return; }
+      const finalized = await api("/tailor/finalize", {resume:baseResume, jobDescription:jd});
+      setTailored(finalized.tailoredResume || baseResume);
+      setCoverLetter(cl.coverLetter || "");
+      setStage("review");
+    } catch(e) { setError(e.message); }
+    setLoading(false);
+  };
+
+  const proceedDespiteWarning = async () => {
+    setWarning(false); setLoading(true);
+    try {
+      const [cl, finalized] = await Promise.all([
+        api("/cover-letter",  {resume:baseResume, jobDescription:jd, company:activeJob.company, role:activeJob.title, userName}),
+        api("/tailor/finalize",{resume:baseResume, jobDescription:jd}),
+      ]);
+      setTailored(finalized.tailoredResume || baseResume);
+      setCoverLetter(cl.coverLetter || "");
+      setStage("review");
+    } catch(e) { setError(e.message); }
+    setLoading(false);
+  };
+
+  const markApplied = () => {
+    setQueue(q=>q.map(j=>j.id===activeJob.id?{...j,status:"applied",appliedAt:new Date().toLocaleDateString()}:j));
+    setActiveJob(null); setStage("idle");
+    setToast({message:`${activeJob.title} @ ${activeJob.company} marked as applied!`,type:"success"});
+  };
+
+  const removeFromQueue = id => setQueue(q=>q.filter(j=>j.id!==id));
+
+  const statusBadge = s => ({
+    "pending":  "bg-slate-800 text-slate-300",
+    "applied":  "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30",
+    "rejected": "bg-rose-500/15 text-rose-300 border border-rose-500/30",
+    "interview":"bg-violet-500/15 text-violet-300 border border-violet-500/30",
+  }[s]||"bg-slate-800 text-slate-300");
+
+  return (
+    <div className="space-y-4">
+      {toast && <Toast {...toast} onClose={()=>setToast(null)}/>}
+
+      {tosWarning && (
+        <Modal title="Automated Submissions — Read Before Continuing" onClose={()=>{setTosWarning(false);setTosPending(null);}} wide>
+          <div className="space-y-4">
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
+              <h3 className="text-amber-300 font-semibold text-sm mb-2">Job Board Terms of Service</h3>
+              <p className="text-amber-100 text-sm leading-relaxed">
+                LinkedIn, Indeed, Dice, ZipRecruiter, and most other job boards <strong>prohibit automated or scripted job applications</strong>. Violating these terms can result in account suspension or permanent ban.
+              </p>
+            </div>
+            <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-4 space-y-2.5 text-sm text-slate-300">
+              <p className="font-semibold text-white">What JobMate actually does:</p>
+              <ul className="space-y-2 text-sm">
+                <li className="flex gap-2"><span className="text-emerald-400 flex-shrink-0">✓</span>Tailors your resume to each specific job description</li>
+                <li className="flex gap-2"><span className="text-emerald-400 flex-shrink-0">✓</span>Generates a personalized cover letter per application</li>
+                <li className="flex gap-2"><span className="text-emerald-400 flex-shrink-0">✓</span>Pre-fills application form fields from your resume</li>
+                <li className="flex gap-2"><span className="text-amber-400 flex-shrink-0">→</span>Opens the job board — <strong>you click Submit</strong></li>
+              </ul>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button onClick={()=>{setTosWarning(false);setTosPending(null);}} className="flex-1 btn btn-ghost py-2.5 text-sm">Cancel</button>
+              <button onClick={acceptTos} className="flex-[2] btn btn-primary py-2.5 text-sm">I understand — Proceed</button>
+            </div>
+            <p className="text-xs text-slate-600 text-center">You won't see this message again this session.</p>
+          </div>
+        </Modal>
+      )}
+
+      {lowScoreWarning && (
+        <Modal title="Resume Score Below 80" onClose={()=>setWarning(false)}>
+          <div className="danger-glow rounded-xl p-5 border border-rose-500/30 bg-rose-500/5 mb-4 text-center">
+            <div className="display text-5xl font-extrabold text-rose-400 mb-1">{score}<span className="text-2xl text-rose-400/60">/100</span></div>
+            <p className="text-rose-200 text-sm mt-2">Applying below 80 significantly lowers interview chances.</p>
+          </div>
+          <p className="text-slate-400 text-sm mb-4">We recommend running the 4-step optimization for this specific role, or proceed anyway.</p>
+          <div className="flex gap-3">
+            <button onClick={()=>setWarning(false)} className="flex-1 btn btn-ghost py-2.5 text-sm">← Optimize First</button>
+            <button onClick={proceedDespiteWarning} disabled={loading} className="flex-1 btn btn-danger py-2.5 text-sm">
+              {loading?"Applying…":"Apply Anyway"}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {activeJob && !lowScoreWarning && (
+        <Modal title={`Apply: ${activeJob.title} @ ${activeJob.company}`} onClose={()=>setActiveJob(null)} wide>
+          {stage==="idle" && (
+            <div className="space-y-4">
+              <p className="text-slate-400 text-sm">Paste the job description to tailor your resume and generate a cover letter.</p>
+              <textarea className="w-full h-40 px-4 py-3 text-sm resize-none" placeholder="Paste job description…"
+                value={jd} onChange={e=>setJd(e.target.value)}/>
+              {error && <p className="text-rose-400 text-xs">{error}</p>}
+              <button onClick={runTailoring} disabled={!jd||loading}
+                className="w-full btn btn-primary py-3 text-sm">
+                {loading?"Tailoring & Generating Cover Letter…":"✨ Tailor Resume + Generate Cover Letter"}
+              </button>
+            </div>
+          )}
+
+          {stage==="review" && (
+            <div className="space-y-4">
+              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 text-xs text-emerald-200">
+                ✅ Resume tailored and cover letter generated. Review before submitting.
+              </div>
+
+              <div>
+                <h4 className="text-sm font-semibold text-white mb-2">Tailored Resume Preview</h4>
+                <pre className="text-xs text-slate-300 bg-slate-950/60 border border-slate-800 rounded-xl p-3 max-h-40 overflow-auto whitespace-pre-wrap font-mono">{tailoredResume}</pre>
+                <button onClick={()=>navigator.clipboard.writeText(tailoredResume)} className="text-xs text-violet-300 hover:text-violet-200 mt-1">Copy Resume</button>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-semibold text-white mb-2">Cover Letter</h4>
+                <pre className="text-xs text-slate-300 bg-slate-950/60 border border-slate-800 rounded-xl p-3 max-h-48 overflow-auto whitespace-pre-wrap font-mono">{coverLetter}</pre>
+                <button onClick={()=>navigator.clipboard.writeText(coverLetter)} className="text-xs text-violet-300 hover:text-violet-200 mt-1">Copy Cover Letter</button>
+              </div>
+
+              <div className="flex gap-3 border-t border-slate-800 pt-4">
+                <a href={activeJob.linkedinUrl} target="_blank" rel="noreferrer"
+                  className="flex-1 text-center btn btn-ghost py-2.5 text-sm">Open LinkedIn →</a>
+                <a href={activeJob.indeedUrl} target="_blank" rel="noreferrer"
+                  className="flex-1 text-center btn btn-ghost py-2.5 text-sm">Open Indeed →</a>
+                <button onClick={markApplied} className="flex-1 btn btn-success py-2.5 text-sm">✓ Mark Applied</button>
+              </div>
+            </div>
+          )}
+        </Modal>
+      )}
+
+      <div className="card p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="display font-bold text-white">Application Queue</h3>
+          <span className="text-slate-500 text-sm font-mono">{queue.length} jobs</span>
+        </div>
+
+        {queue.length===0 ? (
+          <div className="text-center py-14 text-slate-500">
+            <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-slate-800/50 flex items-center justify-center">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+            </div>
+            <p className="text-sm">No jobs queued yet.</p>
+            <p className="text-xs mt-1">Search for jobs and click "+ Queue" to add them here.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {queue.map(job=>(
+              <div key={job.id} className="flex items-center gap-3 bg-slate-900/40 hover:bg-slate-900/70 border border-slate-800 rounded-xl p-3 transition-colors">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-white truncate">{job.title}</span>
+                    <span className={`badge ${statusBadge(job.status||"pending")}`}>{job.status||"pending"}</span>
+                    <span className={`text-xs font-bold ${job.matchScore>=80?"text-emerald-400":job.matchScore>=65?"text-amber-400":"text-rose-400"}`}>
+                      {job.matchScore}%
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-400 mt-0.5 truncate">{job.company} · {job.location}</div>
+                  {job.appliedAt && <div className="text-xs text-slate-500 mt-0.5">Applied {job.appliedAt}</div>}
+                </div>
+                <div className="flex gap-2 flex-shrink-0">
+                  {job.status!=="applied" && (
+                    <button onClick={()=>startApply(job)} className="btn btn-primary text-xs px-3 py-1.5">Apply</button>
+                  )}
+                  <button onClick={()=>removeFromQueue(job.id)} className="btn btn-ghost text-xs px-2 py-1.5 text-rose-400 hover:text-rose-300">✕</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {queue.length>0 && (
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            {label:"Queued",     val:queue.length,                                color:"text-white"},
+            {label:"Applied",    val:queue.filter(j=>j.status==="applied").length, color:"text-emerald-400"},
+            {label:"Interviews", val:queue.filter(j=>j.status==="interview").length,color:"text-violet-400"},
+          ].map(s=>(
+            <div key={s.label} className="card p-4 text-center">
+              <div className={`display text-3xl font-extrabold ${s.color}`}>{s.val}</div>
+              <div className="text-[11px] uppercase tracking-wider text-slate-500 mt-1 font-semibold">{s.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Sidebar ───────────────────────────────────────────────────────────────────
+function Sidebar({activeTab, setActiveTab, queueCount}) {
+  const tabs = [
+    {id:"resume",       label:"Resume & Score", icon:(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>)},
+    {id:"jobs",         label:"Find Jobs",      icon:(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>)},
+    {id:"applications", label:"Applications",   badge:queueCount, icon:(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>)},
+  ];
+  return (
+    <div className="w-60 flex-shrink-0 card p-5 flex flex-col">
+      <Wordmark size={42}/>
+      <nav className="flex-1 space-y-1 mt-8">
+        {tabs.map(t=>(
+          <button key={t.id} onClick={()=>setActiveTab(t.id)}
+            className={`tab w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium ${activeTab===t.id?"tab-active":""}`}>
+            <span className="flex items-center gap-3">{t.icon}<span>{t.label}</span></span>
+            {t.badge>0 && <span className="bg-gradient-to-br from-violet-500 to-indigo-500 text-white text-[10px] min-w-5 h-5 px-1.5 rounded-full flex items-center justify-center font-bold">{t.badge}</span>}
+          </button>
+        ))}
+      </nav>
+      <div className="pt-4 mt-4 border-t border-slate-800">
+        <div className="text-[10px] uppercase tracking-wider text-slate-600 font-semibold mb-1">Local · Private</div>
+        <div className="text-xs text-slate-500 leading-relaxed">Data stays on your machine. No accounts, no cloud.</div>
+      </div>
+    </div>
+  );
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+function Dashboard() {
+  const [activeTab, setActiveTab] = useState("resume");
+  const [resume, setResume]       = useState("");
+  const [filename, setFilename]   = useState("");
+  const [jd, setJd]               = useState("");
+  const [tailored, setTailored]   = useState("");
+  const [queue, setQueue]         = useState([]);
+  const [toast, setToast]         = useState(null);
+
+  useEffect(()=>{
+    const r = sessionStorage.getItem("jm_resume");
+    const fn = sessionStorage.getItem("jm_filename");
+    const t = sessionStorage.getItem("jm_tailored");
+    const q = sessionStorage.getItem("jm_queue");
+    if(r)  setResume(r);
+    if(fn) setFilename(fn);
+    if(t)  setTailored(t);
+    if(q)  setQueue(JSON.parse(q));
+  },[]);
+  useEffect(()=>{ sessionStorage.setItem("jm_resume",   resume); },[resume]);
+  useEffect(()=>{ sessionStorage.setItem("jm_filename", filename); },[filename]);
+  useEffect(()=>{ sessionStorage.setItem("jm_tailored", tailored); },[tailored]);
+  useEffect(()=>{ sessionStorage.setItem("jm_queue",    JSON.stringify(queue)); },[queue]);
+
+  const addToQueue = job => setQueue(q=>[...q.filter(j=>j.id!==job.id), {...job, status:"pending"}]);
+  const setResumeData = ({resume:r, filename:f}) => { setResume(r); setFilename(f); };
+
+  const title = activeTab==="resume" ? "Resume Optimizer"
+              : activeTab==="jobs"   ? "Job Discovery"
+                                     : "Application Tracker";
+  const subtitle = activeTab==="resume" ? "Upload, analyze, and tailor your resume in 4 steps."
+                 : activeTab==="jobs"   ? "Find the 20 roles you have the best shot at."
+                                        : "Manage your application queue and track progress.";
+
+  return (
+    <div className="min-h-screen flex p-5 gap-5">
+      {toast && <Toast {...toast} onClose={()=>setToast(null)}/>}
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab}
+        queueCount={queue.filter(j=>j.status!=="applied").length}/>
+      <div className="flex-1 overflow-auto">
+        <div className="max-w-5xl mx-auto">
+          <div className="mb-7 flex items-end justify-between gap-4 flex-wrap">
+            <div>
+              <h1 className="display text-3xl font-extrabold text-white tracking-tight">{title}</h1>
+              <p className="text-slate-400 text-sm mt-1.5">{subtitle}</p>
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              {resume && (
+                <span className="badge badge-tier1">● Resume ready</span>
+              )}
+            </div>
+          </div>
+          {activeTab==="resume" && (
+            <ResumeTab resume={resume} filename={filename} setResumeData={setResumeData}
+              jd={jd} setJd={setJd} onToast={setToast}/>
+          )}
+          {activeTab==="jobs" && (
+            <JobsTab resume={resume} tailored={tailored} onAddToQueue={addToQueue}/>
+          )}
+          {activeTab==="applications" && (
+            <ApplicationsTab resume={resume} tailored={tailored} queue={queue} setQueue={setQueue} userName="Candidate"/>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<Dashboard/>);
+</script>
+</body>
+</html>
