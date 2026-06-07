@@ -12,10 +12,10 @@ import os
 import re
 import threading
 
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, send_file
 from flask_cors import CORS
 
-from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions
+from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions, query
 from claude_agent_sdk.types import AssistantMessage, TextBlock
 
 app = Flask(__name__, static_folder="static")
@@ -451,6 +451,173 @@ Return ONLY valid JSON:
 }}
 """)
     return jsonify(result)
+
+
+# ── Fetch JD from a posting URL ──────────────────────────────────────────────
+# Uses an ephemeral query() (not the persistent client) so we can enable
+# WebFetch for this one call without changing the long-lived client's options.
+
+@app.route("/api/jobs/fetch-description", methods=["POST"])
+def fetch_job_description():
+    d = request.json or {}
+    url = (d.get("url") or "").strip()
+    if not url:
+        return jsonify({"error": "url is required"}), 400
+    if not (url.startswith("http://") or url.startswith("https://")):
+        return jsonify({"error": "url must start with http:// or https://"}), 400
+
+    async def _fetch():
+        opts = ClaudeAgentOptions(
+            allowed_tools=["WebFetch"],
+            system_prompt=(
+                "You extract job posting details from a single URL. "
+                "Return ONLY a JSON object — no prose, no markdown fences."
+            ),
+        )
+        prompt = f"""Fetch this job posting URL and extract the details:
+{url}
+
+If the page requires login or is blocked, return the best information you can
+infer from any accessible content. Set "fetchOk" to false if you could not get
+the actual posting.
+
+Return ONLY valid JSON:
+{{
+  "company": "string",
+  "role": "string",
+  "location": "string",
+  "jobDescription": "the full job description as plain text",
+  "fetchOk": true,
+  "note": "short note if anything is approximate or missing"
+}}"""
+        out = []
+        async for message in query(prompt=prompt, options=opts):
+            if isinstance(message, AssistantMessage):
+                for block in message.content:
+                    if isinstance(block, TextBlock):
+                        out.append(block.text)
+        return "".join(out)
+
+    text = asyncio.run(_fetch())
+    match = re.search(r"```json\s*(.*?)```", text, re.DOTALL) or re.search(r"(\{.*\})", text, re.DOTALL)
+    if match:
+        result = json.loads(match.group(1))
+    else:
+        result = json.loads(text)
+    return jsonify(result)
+
+
+# ── Resume export (PDF & DOCX) ───────────────────────────────────────────────
+
+def _classify_line(stripped: str):
+    """Return ('header'|'bullet'|'body', cleaned_text)."""
+    if not stripped:
+        return ("blank", "")
+    if stripped.startswith("#"):
+        return ("header", stripped.lstrip("#").strip())
+    # ALL-CAPS short line → section header
+    letters = [c for c in stripped if c.isalpha()]
+    if letters and all(c.isupper() for c in letters) and 2 < len(stripped) <= 60:
+        return ("header", stripped)
+    if stripped[0] in "-*•·":
+        return ("bullet", stripped.lstrip("-*•· ").strip())
+    return ("body", stripped)
+
+
+def text_to_pdf(text: str) -> bytes:
+    from fpdf import FPDF
+
+    pdf = FPDF(format="Letter", unit="pt")
+    pdf.set_auto_page_break(True, margin=36)
+    pdf.add_page()
+    pdf.set_margins(48, 36, 48)
+    pdf.set_font("Helvetica", "", 10.5)
+
+    for raw in text.split("\n"):
+        line = raw.rstrip()
+        # fpdf2 default fonts (Helvetica) are latin-1; replace anything that isn't.
+        safe = line.encode("latin-1", "replace").decode("latin-1")
+        kind, clean = _classify_line(safe.strip())
+
+        if kind == "blank":
+            pdf.ln(6)
+        elif kind == "header":
+            pdf.ln(4)
+            pdf.set_font("Helvetica", "B", 12)
+            pdf.multi_cell(0, 14, clean)
+            pdf.set_font("Helvetica", "", 10.5)
+        elif kind == "bullet":
+            pdf.multi_cell(0, 12, "- " + clean)
+        else:
+            pdf.multi_cell(0, 12, clean)
+
+    return bytes(pdf.output())
+
+
+def text_to_docx(text: str) -> bytes:
+    from docx import Document
+    from docx.shared import Inches, Pt
+
+    doc = Document()
+    for section in doc.sections:
+        section.top_margin = Inches(0.5)
+        section.bottom_margin = Inches(0.5)
+        section.left_margin = Inches(0.7)
+        section.right_margin = Inches(0.7)
+
+    normal = doc.styles["Normal"]
+    normal.font.name = "Calibri"
+    normal.font.size = Pt(10.5)
+
+    for raw in text.split("\n"):
+        line = raw.rstrip()
+        kind, clean = _classify_line(line.strip())
+
+        if kind == "blank":
+            doc.add_paragraph()
+        elif kind == "header":
+            p = doc.add_paragraph()
+            run = p.add_run(clean)
+            run.bold = True
+            run.font.size = Pt(12)
+        elif kind == "bullet":
+            doc.add_paragraph(clean, style="List Bullet")
+        else:
+            doc.add_paragraph(clean)
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
+
+
+@app.route("/api/export/pdf", methods=["POST"])
+def export_pdf():
+    d = request.json or {}
+    text = d.get("text", "")
+    filename = d.get("filename") or "tailored_resume.pdf"
+    if not text.strip():
+        return jsonify({"error": "text is required"}), 400
+    return send_file(
+        io.BytesIO(text_to_pdf(text)),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=filename,
+    )
+
+
+@app.route("/api/export/docx", methods=["POST"])
+def export_docx():
+    d = request.json or {}
+    text = d.get("text", "")
+    filename = d.get("filename") or "tailored_resume.docx"
+    if not text.strip():
+        return jsonify({"error": "text is required"}), 400
+    return send_file(
+        io.BytesIO(text_to_docx(text)),
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        as_attachment=True,
+        download_name=filename,
+    )
 
 
 # ── Serve frontend ────────────────────────────────────────────────────────────
